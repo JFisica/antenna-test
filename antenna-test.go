@@ -29,12 +29,6 @@ type Result struct {
 	Duplicate bool
 }
 
-type udpPacket struct {
-	data []byte
-	addr *net.UDPAddr
-	n    int
-}
-
 const timeMarshalSize = 15
 
 func ParseFlags() Config {
@@ -87,19 +81,11 @@ func runUDPServer(addr string) {
 			fmt.Println("Read error:", err)
 			continue
 		}
-
-		// Copiar los datos porque buf será sobreescrito en la siguiente iteración
-		data := make([]byte, n)
-		copy(data, buf[:n])
-
-		go func(addr *net.UDPAddr, data []byte) {
-			_, err := conn.WriteToUDP(data, addr)
-			if err != nil {
-				fmt.Println("Write error:", err)
-			}
-		}(clientAddr, data)
+		_, err = conn.WriteToUDP(buf[:n], clientAddr)
+		if err != nil {
+			fmt.Println("Write error:", err)
+		}
 	}
-
 }
 
 func runTCPServer(addr string) {
@@ -248,7 +234,7 @@ func runUDPClient(addr string, cfg Config) []Result {
 
 	// --- Reporte final ---
 	jitter := calculateJitter(rtts)
-	throughputMbps := float64(totalBytesReceived) / float64(cfg.DurationSec*1e6)
+	throughputMbps := float64(totalBytesReceived*8) / float64(cfg.DurationSec*1e6)
 	latency := calculateLatencyStats(rtts)
 
 	// Filtrar duplicados en el reporte final
