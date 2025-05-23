@@ -68,43 +68,38 @@ func runServer(cfg Config) {
 }
 
 func runUDPServer(addr string) {
-	udpAddr, _ := net.ResolveUDPAddr("udp", addr)
-	conn, _ := net.ListenUDP("udp", udpAddr)
-	defer conn.Close()
-
-	// Ajuste de buffers para altas tasas
-	conn.SetReadBuffer(4 * 1024 * 1024)
-	conn.SetWriteBuffer(4 * 1024 * 1024)
-
-	const workerCount = 100
-	packetCh := make(chan udpPacket, 10000) // canal grande
-
-	// Workers que responden
-	for i := 0; i < workerCount; i++ {
-		go func() {
-			for pkt := range packetCh {
-				_, err := conn.WriteToUDP(pkt.data[:pkt.n], pkt.addr)
-				if err != nil {
-					fmt.Println("Write error:", err)
-				}
-			}
-		}()
+	udpAddr, err := net.ResolveUDPAddr("udp", addr)
+	if err != nil {
+		fmt.Println("Error resolving UDP addr:", err)
+		return
 	}
-
+	conn, err := net.ListenUDP("udp", udpAddr)
+	if err != nil {
+		fmt.Println("Error listening UDP:", err)
+		return
+	}
+	defer conn.Close()
 	buf := make([]byte, 65535)
-	fmt.Println("Servidor UDP paralelo escuchando en", addr)
-
-	// Receptor principal
+	fmt.Println("UDP server listening on", addr)
 	for {
 		n, clientAddr, err := conn.ReadFromUDP(buf)
 		if err != nil {
 			fmt.Println("Read error:", err)
 			continue
 		}
-		tmp := make([]byte, n)
-		copy(tmp, buf[:n])
-		packetCh <- udpPacket{data: tmp, addr: clientAddr, n: n}
+
+		// Copiar los datos porque buf será sobreescrito en la siguiente iteración
+		data := make([]byte, n)
+		copy(data, buf[:n])
+
+		go func(addr *net.UDPAddr, data []byte) {
+			_, err := conn.WriteToUDP(data, addr)
+			if err != nil {
+				fmt.Println("Write error:", err)
+			}
+		}(clientAddr, data)
 	}
+
 }
 
 func runTCPServer(addr string) {
