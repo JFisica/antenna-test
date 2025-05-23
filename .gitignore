@@ -1,0 +1,6 @@
+# Ignora todo por defecto
+*
+
+# Pero no ignores estos (¡ojo con el orden!)
+!.gitignore
+!*.go
